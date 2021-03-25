@@ -166,9 +166,35 @@ class LuaAppRunConfiguration(project: Project, factory: ConfigurationFactory)
         }
     }
 
-    override fun createCommandLine() = GeneralCommandLine().withExePath(program)
-            .withEnvironment(envs)
-            .withParameters(*parametersArray)
-            .withWorkDirectory(workingDir)
-            .withCharset(Charset.forName(charset))
+    override fun createCommandLine(): GeneralCommandLine {
+        val luaPathKey = "LUA_PATH"
+        val luaCPathKey = "LUA_CPATH"
+        var luaPathValue = ""
+
+        val modules = ModuleManager.getInstance(this.project).modules
+        for (module in modules) {
+            val sourceRoots = ModuleRootManager.getInstance(module).sourceRoots
+            for (sourceRoot in sourceRoots) {
+                var luaSearchPath = "" + sourceRoot
+                luaSearchPath = luaSearchPath.replaceFirst("file://", "") + "/?.lua"
+                luaPathValue = "$luaPathValue$luaSearchPath;"
+            }
+        }
+
+        val systemLuaPath: String = System.getenv(luaPathKey) ?: ""
+        val systemLuaCPath: String = System.getenv(luaCPathKey) ?: ""
+
+        val targetEnvs = envs.toMutableMap()
+
+        // TODO: append LUA_PATH value with the given envs instead of just overwriting the key
+
+        targetEnvs[luaPathKey] = luaPathValue + systemLuaPath
+        targetEnvs[luaCPathKey] = systemLuaCPath
+
+        return GeneralCommandLine().withExePath(program)
+                .withEnvironment(targetEnvs)
+                .withParameters(*parametersArray)
+                .withWorkDirectory(workingDir)
+                .withCharset(Charset.forName(charset))
+    }
 }
